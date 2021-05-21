@@ -1,5 +1,24 @@
+import multiprocessing
+
 import pytest
 from _pytest.terminal import TerminalReporter
+
+
+class Counter(object):
+    def __init__(self):
+        self.val = multiprocessing.Value('i', 0)
+
+    def increment(self, n=1):
+        with self.val.get_lock():
+            self.val.value += n
+
+    def __iadd__(self, other):
+        self.increment(other)
+        return self
+
+    @property
+    def value(self):
+        return self.val.value
 
 
 def pytest_collection_finish(session):
@@ -57,14 +76,14 @@ class ProgressTerminalReporter(TerminalReporter):
         self.print_every_x_pass = print_every_x_pass
         self._tw = reporter._tw
         self.tests_count = 0
-        self.tests_taken = 0
-        self.pass_count = 0
-        self.fail_count = 0
-        self.skip_count = 0
-        self.xpass_count = 0
-        self.xfail_count = 0
-        self.error_count = 0
-        self.rerun_count = 0
+        self.tests_taken = Counter()
+        self.pass_count = Counter()
+        self.fail_count = Counter()
+        self.skip_count = Counter()
+        self.xpass_count = Counter()
+        self.xfail_count = Counter()
+        self.error_count = Counter()
+        self.rerun_count = Counter()
 
     def append_rerun(self, report):
 
@@ -72,7 +91,7 @@ class ProgressTerminalReporter(TerminalReporter):
             self.append_failure(report)
 
         if report.when == "call" and report.rerun:  # ignore setup/teardown
-            self.rerun_count = self.rerun_count + 1
+            self.rerun_count += 1
 
         elif report.skipped:
             self.append_skipped(report)
@@ -80,45 +99,45 @@ class ProgressTerminalReporter(TerminalReporter):
     def append_pass(self, report):
 
         if hasattr(report, "wasxfail"):
-            self.xpass_count = self.xpass_count + 1
-            self.tests_taken = self.tests_taken + 1
+            self.xpass_count += 1
+            self.tests_taken += 1
 
         else:
-            self.pass_count = self.pass_count + 1
-            self.tests_taken = self.tests_taken + 1
+            self.pass_count += 1
+            self.tests_taken += 1
 
         if hasattr(report, 'rerun'):
             if report.rerun:
-                self.rerun_count = self.rerun_count + 1
+                self.rerun_count += 1
 
     def append_failure(self, report):
 
         if report.when == "call":
             if hasattr(report, "wasxfail"):
-                self.xpass_count = self.xpass_count + 1
-                self.tests_taken = self.tests_taken + 1
+                self.xpass_count += 1
+                self.tests_taken += 1
 
             else:
-                self.fail_count = self.fail_count + 1
-                self.tests_taken = self.tests_taken + 1
+                self.fail_count += 1
+                self.tests_taken += 1
 
         else:
             self.append_error()
 
     def append_error(self):
 
-        self.error_count = self.error_count + 1
-        self.tests_taken = self.tests_taken + 1
+        self.error_count += 1
+        self.tests_taken += 1
 
     def append_skipped(self, report):
 
         if hasattr(report, "wasxfail"):
-            self.xfail_count = self.xfail_count + 1
-            self.tests_taken = self.tests_taken + 1
+            self.xfail_count += 1
+            self.tests_taken += 1
 
         else:
-            self.skip_count = self.skip_count + 1
-            self.tests_taken = self.tests_taken + 1
+            self.skip_count += 1
+            self.tests_taken += 1
 
     def pytest_report_teststatus(self, report):
         """ Called after every test for test case status"""
@@ -137,10 +156,11 @@ class ProgressTerminalReporter(TerminalReporter):
         if report.when in ("teardown"):
             if not report.failed:  # Print failures
                 if self.tests_taken != 1 and self.tests_taken != self.tests_count:  # Print first/last test
-                    if self.pass_count % self.print_every_x_pass != 0:  # Skip every x pass
+                    if self.pass_count.value % self.print_every_x_pass != 0:  # Skip every x pass
                         return
-            status = (self.tests_taken, self.tests_count, self.pass_count, self.fail_count,
-                      self.skip_count, self.xpass_count, self.xfail_count, self.error_count, self.rerun_count)
+            status = (self.tests_taken.value, self.tests_count.value, self.pass_count.value, self.fail_count.value,
+                      self.skip_count.value, self.xpass_count.value, self.xfail_count.value, self.error_count.value,
+                      self.rerun_count.value)
 
             msg = "%d of %d completed, %d Pass, %d Fail, %d Skip, %d XPass, %d XFail, %d Error, %d ReRun" % (status)
             self.write_sep("_", msg)
