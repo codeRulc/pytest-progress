@@ -155,10 +155,10 @@ class ProgressTerminalReporter(TerminalReporter):
 
         if report.when in ("teardown"):
             if not report.failed:  # Print failures
-                if self.tests_taken != 1 and self.tests_taken != self.tests_count:  # Print first/last test
+                if self.tests_taken.value != 1 and self.tests_taken.value != self.tests_count:  # Print first/last test
                     if self.pass_count.value % self.print_every_x_pass != 0:  # Skip every x pass
                         return
-            status = (self.tests_taken.value, self.tests_count.value, self.pass_count.value, self.fail_count.value,
+            status = (self.tests_taken.value, self.tests_count, self.pass_count.value, self.fail_count.value,
                       self.skip_count.value, self.xpass_count.value, self.xfail_count.value, self.error_count.value,
                       self.rerun_count.value)
 
